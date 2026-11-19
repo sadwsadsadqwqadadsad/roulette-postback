@@ -1,4 +1,3 @@
-
 exports.handler = async (event) => {
   try {
     // Allow GET and POST requests
@@ -16,8 +15,7 @@ exports.handler = async (event) => {
     let bodyParams = {};
 
     if (event.body) {
-      const contentType =
-        event.headers?.["content-type"] || "";
+      const contentType = event.headers?.["content-type"] || "";
 
       if (event.isBase64Encoded) {
         return {
@@ -36,11 +34,13 @@ exports.handler = async (event) => {
     }
 
     // Support the expected player ID parameter
-    const userId =
-      query.event_id || bodyParams.event_id;
+    const userId = query.event_id || bodyParams.event_id;
 
+    // Block empty, missing, or the literal words "null" / "undefined"
     if (
       !userId ||
+      userId === "null" ||
+      userId === "undefined" ||
       typeof userId !== "string" ||
       !/^[a-zA-Z0-9_-]{1,128}$/.test(userId)
     ) {
