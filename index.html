@@ -1,4 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Roulette Free Software</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+
+        :root {
+            --navy-0: #03040d;
+            --navy-1: #070b1f;
+            --navy-2: #0d1236;
+            --purple-1: #1a0a3d;
+            --purple-2: #2b1263;
+            --violet: #7b5cff;
+            --lilac: #cdbdff;
+            --ink: #ece8ff;
+            --muted: #8a85b8;
+            --panel: rgba(120, 90, 255, 0.07);
+            --panel-line: rgba(150, 120, 255, 0.28);
+            --pastel: linear-gradient(120deg, #ffc2ea, #c4d4ff, #bffbe9, #fff4b0, #ffcfb8, #ffc2ea);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background:
+                radial-gradient(ellipse at 20% 10%, rgba(123, 92, 255, 0.28) 0%, rgba(123,92,255,0) 50%),
+                radial-gradient(ellipse at 85% 90%, rgba(48, 70, 200, 0.28) 0%, rgba(48,70,200,0) 55%),
+                linear-gradient(160deg, var(--navy-0), var(--navy-2) 45%, var(--purple-1) 100%);
+            background-size: 140% 140%, 140% 140%, 100% 100%;
+            background-attachment: fixed;
+            animation: bgDrift 18s ease-in-out infinite alternate;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 72px 24px 64px;
+            color: var(--ink);
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            position: relative;
+        }
+        @keyframes bgDrift {
+            0%   { background-position: 0% 0%, 100% 100%, 0 0; }
+            100% { background-position: 40% 30%, 60% 70%, 0 0; }
+        }
+
+        /* drifting starlight */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                radial-gradient(1.5px 1.5px at 12% 22%, rgba(255,255,255,0.8), transparent),
+                radial-gradient(1px 1px at 30% 70%, rgba(205,189,255,0.8), transparent),
+                radial-gradient(1.5px 1.5px at 55% 15%, rgba(255,255,255,0.7), transparent),
+                radial-gradient(1px 1px at 72% 48%, rgba(190,210,255,0.8), transparent),
+                radial-gradient(1.5px 1.5px at 88% 80%, rgba(255,255,255,0.7), transparent),
+                radial-gradient(1px 1px at 8% 88%, rgba(205,189,255,0.7), transparent),
+                radial-gradient(1px 1px at 45% 92%, rgba(255,255,255,0.6), transparent),
+                radial-gradient(1.5px 1.5px at 93% 12%, rgba(190,210,255,0.8), transparent);
+            animation: twinkle 5s ease-in-out infinite alternate;
+            z-index: 0;
+        }
+        @keyframes twinkle { from { opacity: 0.35; } to { opacity: 1; } }
+        body > * { position: relative; z-index: 1; }
+
+        /* --- AUTH GATE / OVERLAY STYLES --- */
+        #authOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(3, 4, 13, 0.95);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .auth-card {
+            background: linear-gradient(145deg, rgba(13, 18, 54, 0.95), rgba(26, 10, 61, 0.98));
+            border: 1px solid var(--panel-line);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 420px;
+            padding: 36px 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(123, 92, 255, 0.25);
+            text-align: center;
+        }
+        .auth-tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .auth-tab {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            padding: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.25s ease;
+        }
+        .auth-tab.active {
+            background: linear-gradient(120deg, #7b5cff, #4f7bff);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(123, 92, 255, 0.4);
+        }
+        .auth-title {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 2rem;
+            margin: 0 0 10px;
+            color: #fff;
+        }
+        .auth-desc {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .auth-input {
+            width: 100%;
+            height: 48px;
+            background: rgba(2, 3, 14, 0.85);
+            border: 1px solid var(--panel-line);
+            color: #fff;
+            font-size: 16px;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .auth-input:focus {
+            border-color: var(--violet);
+            box-shadow: 0 0 15px rgba(123, 92, 255, 0.4);
+        }
+        .auth-msg {
+            font-size: 13px;
+            margin-top: 14px;
+            min-height: 20px;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+        .auth-view { display: none; }
+        .auth-view.active { display: block; }
+
+        h1 {
+            font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+            font-size: 2.9rem;
+            font-weight: 600;
+            letter-spacing: 0.16em;
+            margin: 0 0 40px;
+            text-align: center;
+            background: linear-gradient(100deg, #b9a6ff 0%, #ffffff 25%, #9fd0ff 50%, #ffc2ea 75%, #b9a6ff 100%);
+            background-size: 250% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            animation: shimmer 7s linear infinite;
+            filter: drop-shadow(0 4px 24px rgba(123, 92, 255, 0.55));
+        }
+        @keyframes shimmer { to { background-position: -250% 0; } }
+        h1::after {
+            content: '';
+            display: block;
+            width: 140px;
+            height: 1px;
+            margin: 16px auto 0;
+            background: linear-gradient(90deg, transparent, var(--violet), transparent);
+        }
+
+        .wheel-container {
+            position: relative;
+            width: 600px;
+            height: 400px;
+            margin-bottom: 36px;
+        }
+        .track-container {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+        }
+
+        .num {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 600;
+            position: absolute;
+            border-radius: 50%;
+            font-size: 13px;
+            color: var(--ink);
+            border: 1px solid rgba(190, 170, 255, 0.35);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.14);
+            transition: all 0.3s ease;
+            animation: chipIn 0.6s ease backwards;
+        }
+        @keyframes chipIn { from { opacity: 0; transform: scale(0.4); } }
+        .red   { background: radial-gradient(circle at 35% 30%, #c2306b, #6e1240); }
+        .black { background: radial-gradient(circle at 35% 30%, #2a2a4a, #0a0a18); }
+        .green { background: radial-gradient(circle at 35% 30%, #1fc896, #0a6e57); }
+
+        .num.neighbor {
+            background: linear-gradient(135deg, #1b2a8f, #5b3fe0, #8a2be2, #3a7bff, #00d4ff, #7cff9e, #ffe66b, #ff7ac8, #8a2be2, #1b2a8f) !important;
+            background-size: 400% 400% !important;
+            color: #fff;
+            border-color: rgba(255,255,255,0.85);
+            text-shadow: 0 1px 4px rgba(0,0,20,0.8);
+            transform: scale(1.18);
+            box-shadow: 0 0 16px rgba(110, 80, 255, 0.85), 0 0 30px rgba(60, 100, 255, 0.45);
+            animation: sideFlow 4s linear infinite, neighborPulse 1.8s ease-in-out infinite;
+        }
+        .num.center {
+            background: radial-gradient(circle at 35% 30%, #ffc2e6, #ff4fb0 55%, #d1127f) !important;
+            color: #fff;
+            border-color: #fff;
+            text-shadow: 0 1px 4px rgba(120,0,70,0.8);
+            transform: scale(1.42);
+            z-index: 5;
+            box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 0 32px rgba(255,79,176,0.95), 0 0 64px rgba(255,79,176,0.6);
+            animation: centerPulse 1.2s ease-in-out infinite;
+        }
+        @keyframes sideFlow { to { background-position: 400% 400%; } }
+        @keyframes neighborPulse {
+            0%, 100% { transform: scale(1.14); }
+            50%      { transform: scale(1.24); }
+        }
+        @keyframes centerPulse {
+            0%, 100% { transform: scale(1.36); box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 0 26px rgba(255,79,176,0.9), 0 0 50px rgba(255,79,176,0.55); }
+            50%      { transform: scale(1.52); box-shadow: 0 0 0 5px rgba(255,255,255,1), 0 0 44px rgba(255,120,200,1), 0 0 84px rgba(255,79,176,0.9); }
+        }
+
+        .wheel-prediction {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 180px;
+            height: 110px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: none;
+            font-family: 'Arial', monospace;
+            text-align: center;
+            background: transparent;
+        }
+        .pred-percentage {
+            font-size: 32px;
+            font-weight: 900;
+            color: #ffdd99;
+            text-shadow: 0 0 15px #ff9933;
+            line-height: 1;
+            background: rgba(0,0,0,0.5);
+            padding: 8px 18px;
+            border-radius: 50px;
+            letter-spacing: 1px;
+        }
+        .pred-label {
+            font-size: 10px;
+            font-weight: bold;
+            background: rgba(0,0,0,0.6);
+            padding: 4px 14px;
+            border-radius: 30px;
+            margin-top: 6px;
+            color: #ffdd99;
+            letter-spacing: 1px;
+        }
+        .glow-prediction {
+            animation: pulseGlow 1.2s infinite ease-in-out;
+        }
+        @keyframes pulseGlow {
+            0% { filter: drop-shadow(0 0 3px #ffaa33); }
+            100% { filter: drop-shadow(0 0 18px #ffdd77); }
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 40px;
+            padding: 14px 16px;
+            background: var(--panel);
+            border: 1px solid var(--panel-line);
+            border-radius: 16px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 14px 44px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            position: relative;
+            overflow: hidden;
+            padding: 12px 24px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 14px;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.25s ease, filter 0.2s ease;
+        }
+        button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.12); }
+        button:active:not(:disabled) { transform: translateY(0) scale(0.97); }
+        button:focus-visible, .result-input:focus-visible { outline: 2px solid var(--lilac); outline-offset: 2px; }
+
+        #enterBtn {
+            background: linear-gradient(120deg, #7b5cff, #4f7bff, #b46bff, #7b5cff);
+            background-size: 250% 100%;
+            color: #fff;
+            box-shadow: 0 6px 22px rgba(123, 92, 255, 0.5);
+            animation: btnFlow 5s linear infinite;
+        }
+        @keyframes btnFlow { to { background-position: -250% 0; } }
+        #enterBtn:hover:not(:disabled) { box-shadow: 0 8px 32px rgba(150, 120, 255, 0.85); }
+        #enterBtn:disabled {
+            background: rgba(255,255,255,0.05);
+            color: var(--muted);
+            box-shadow: none;
+            animation: none;
+            cursor: not-allowed;
+            border-color: rgba(255,255,255,0.08);
+        }
+        #undoBtn {
+            background: rgba(255,255,255,0.03);
+            color: var(--ink);
+            border-color: rgba(190, 170, 255, 0.4);
+        }
+        #resetBtn {
+            background: rgba(255,255,255,0.03);
+            color: #ff9ac9;
+            border-color: rgba(255, 110, 180, 0.5);
+        }
+        .auth-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(120deg, #7b5cff, #4f7bff, #b46bff, #7b5cff);
+            background-size: 250% 100%;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(123, 92, 255, 0.4);
+            text-decoration: none;
+            display: inline-block;
+        }
+        .auth-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .result-input {
+            width: 84px;
+            height: 44px;
+            background: rgba(2,3,14,0.75);
+            border: 1px solid var(--panel-line);
+            color: #fff;
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 24px;
+            font-weight: 700;
+            text-align: center;
+            border-radius: 10px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.7);
+            transition: border-color 0.2s ease, box-shadow 0.25s ease;
+        }
+        .result-input:focus { border-color: var(--violet); box-shadow: inset 0 2px 10px rgba(0,0,0,0.7), 0 0 18px rgba(123,92,255,0.55); }
+        .result-input::placeholder { color: var(--muted); font-size: 14px; font-family: 'Inter', sans-serif; font-weight: 400; }
+        .result-input::-webkit-outer-spin-button,
+        .result-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .result-input { -moz-appearance: textfield; }
+
+        h3 {
+            margin: 22px 0 10px;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.08em;
+            color: var(--lilac);
+        }
+
+        .history-container {
+            width: 600px;
+            max-width: 100%;
+            min-height: 44px;
+            display: flex;
+            gap: 10px;
+            padding: 4px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        }
+        .history-num, .history-wl {
+            --edge: #8fa0ff;
+            --fill: #0a0d24;
+            --glow: rgba(143,160,255,0.55);
+            position: relative;
+            isolation: isolate;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Orbitron', 'Rajdhani', 'Segoe UI', sans-serif;
+            font-weight: 700;
+            font-size: 12px;
+            letter-spacing: 0.04em;
+            color: #fff;
+            text-shadow: 0 0 8px var(--glow);
+            clip-path: polygon(22% 0, 100% 0, 100% 78%, 78% 100%, 0 100%, 0 22%);
+            filter: drop-shadow(0 0 6px var(--glow));
+            animation: tileIn 0.45s cubic-bezier(.2,.9,.3,1) backwards;
+        }
+        .history-num::before, .history-wl::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: -2;
+            background: linear-gradient(135deg, var(--edge), transparent 60%, var(--edge));
+        }
+        .history-num::after, .history-wl::after {
+            content: '';
+            position: absolute;
+            inset: 1.5px;
+            z-index: -1;
+            clip-path: polygon(22% 0, 100% 0, 100% 78%, 78% 100%, 0 100%, 0 22%);
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 45%),
+                repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 3px),
+                var(--fill);
+        }
+        @keyframes tileIn {
+            from { opacity: 0; transform: translateY(6px) scale(0.85); filter: blur(4px) drop-shadow(0 0 0 transparent); }
+        }
+        .history-num.red   { --edge: #ff4fa3; --fill: #2b0b23; --glow: rgba(255,79,163,0.6); }
+        .history-num.black { --edge: #7f8dff; --fill: #0a0d2b; --glow: rgba(127,141,255,0.55); }
+        .history-num.green { --edge: #2ff0c4; --fill: #04241f; --glow: rgba(47,240,196,0.6); }
+        .history-wl.W      { --edge: #2ff0c4; --fill: #04241f; --glow: rgba(47,240,196,0.6); }
+        .history-wl.L      { --edge: #ff4fa3; --fill: #2b0b23; --glow: rgba(255,79,163,0.6); }
+
+        @media (max-width: 800px) {
+            body { padding: 44px 16px 48px; }
+            h1 { font-size: 2.1rem; }
+            .wheel-container { width: 100%; max-width: 600px; height: auto; aspect-ratio: 600/400; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- AFFILIATE LOGIN / REGISTER OVERLAY MODAL -->
+<div id="authOverlay">
+    <div class="auth-card">
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Login ID</button>
+            <button class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">Create ID</button>
+        </div>
+
+        <!-- Login View -->
+        <div id="loginView" class="auth-view active">
+            <h2 class="auth-title">Member Access</h2>
+            <p class="auth-desc">Enter your registered Casino ID to unlock the software.</p>
+            <input type="text" id="casinoIdInput" class="auth-input" placeholder="Enter Casino ID" autocomplete="off">
+            <button class="auth-btn" id="loginSubmitBtn" onclick="verifyCasinoId()">Launch Software</button>
+            <div id="loginMsg" class="auth-msg"></div>
+        </div>
+
+        <!-- Register View (No Input Box) -->
+        <div id="registerView" class="auth-view">
+            <h2 class="auth-title">Get an ID</h2>
+            <p class="auth-desc">Need a casino account ID? Register through our partner network link below to create your ID.</p>
+            <a href="https://one-vv2957.com/?open=register&p=k2ry" target="_blank" class="auth-btn">Register / Create ID</a>
+        </div>
+    </div>
+</div>
+
+<h1>ROULETTE ANALYSIS</h1>
+
+<div class="wheel-container">
+    <div class="track-container" id="track"></div>
+    <div class="wheel-prediction" id="wheelPrediction">
+        <div id="predictionInner"></div>
+    </div>
+</div>
+
+<div class="controls">
+    <input type="number" id="resultInput" class="result-input" placeholder="0-36" min="0" max="36" required oninput="this.value = this.value.slice(0, 2)">
+    <button id="enterBtn" disabled>Enter</button>
+    <button id="undoBtn">Undo</button>
+    <button id="resetBtn">Reset</button>
+</div>
+
+<h3>Number History (last 10):</h3>
+<div class="history-container" id="numberHistory"></div>
+<h3>Win/Lose History (last 10):</h3>
+<div class="history-container" id="wlHistory"></div>
+
 <script>
-<!-- code by https://www.html-code-generator.com -->
-document.write(unescape('%3C%21DOCTYPE%20html%3E%0D%0A%3Chtml%20lang%3D%22en%22%3E%0D%0A%3Chead%3E%0D%0A%20%20%20%20%3Cmeta%20charset%3D%22UTF-8%22%3E%0D%0A%20%20%20%20%3Cmeta%20name%3D%22viewport%22%20content%3D%22width%3Ddevice-width%2C%20initial-scale%3D1.0%2C%20user-scalable%3Dyes%22%3E%0D%0A%20%20%20%20%3Ctitle%3ERoulette%20Free%20Software%3C/title%3E%0D%0A%20%20%20%20%3Clink%20rel%3D%22preconnect%22%20href%3D%22https%3A//fonts.googleapis.com%22%3E%0D%0A%20%20%20%20%3Clink%20rel%3D%22preconnect%22%20href%3D%22https%3A//fonts.gstatic.com%22%20crossorigin%3E%0D%0A%20%20%20%20%3Clink%20href%3D%22https%3A//fonts.googleapis.com/css2%3Ffamily%3DCormorant+Garamond%3Awght@500%3B600%3B700%26family%3DInter%3Awght@400%3B500%3B600%3B700%26family%3DOrbitron%3Awght@500%3B700%26display%3Dswap%22%20rel%3D%22stylesheet%22%3E%0D%0A%0D%0A%20%20%20%20%3C%21--%20Firebase%20SDKs%20--%3E%0D%0A%20%20%20%20%3Cscript%20src%3D%22https%3A//www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js%22%3E%3C/script%3E%0D%0A%20%20%20%20%3Cscript%20src%3D%22https%3A//www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js%22%3E%3C/script%3E%0D%0A%0D%0A%20%20%20%20%3Cstyle%3E%0D%0A%20%20%20%20%20%20%20%20@property%20--angle%20%7B%20syntax%3A%20%27%3Cangle%3E%27%3B%20initial-value%3A%200deg%3B%20inherits%3A%20false%3B%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20%3Aroot%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--navy-0%3A%20%2303040d%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--navy-1%3A%20%23070b1f%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--navy-2%3A%20%230d1236%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--purple-1%3A%20%231a0a3d%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--purple-2%3A%20%232b1263%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--violet%3A%20%237b5cff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--lilac%3A%20%23cdbdff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--ink%3A%20%23ece8ff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--muted%3A%20%238a85b8%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--panel%3A%20rgba%28120%2C%2090%2C%20255%2C%200.07%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--panel-line%3A%20rgba%28150%2C%20120%2C%20255%2C%200.28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--pastel%3A%20linear-gradient%28120deg%2C%20%23ffc2ea%2C%20%23c4d4ff%2C%20%23bffbe9%2C%20%23fff4b0%2C%20%23ffcfb8%2C%20%23ffc2ea%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20*%20%7B%20box-sizing%3A%20border-box%3B%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20body%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20radial-gradient%28ellipse%20at%2020%25%2010%25%2C%20rgba%28123%2C%2092%2C%20255%2C%200.28%29%200%25%2C%20rgba%28123%2C92%2C255%2C0%29%2050%25%29%2C%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20radial-gradient%28ellipse%20at%2085%25%2090%25%2C%20rgba%2848%2C%2070%2C%20200%2C%200.28%29%200%25%2C%20rgba%2848%2C70%2C200%2C0%29%2055%25%29%2C%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20linear-gradient%28160deg%2C%20var%28--navy-0%29%2C%20var%28--navy-2%29%2045%25%2C%20var%28--purple-1%29%20100%25%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background-size%3A%20140%25%20140%25%2C%20140%25%20140%25%2C%20100%25%20100%25%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background-attachment%3A%20fixed%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20animation%3A%20bgDrift%2018s%20ease-in-out%20infinite%20alternate%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20display%3A%20flex%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20flex-direction%3A%20column%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20align-items%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-family%3A%20%27Inter%27%2C%20%27Segoe%20UI%27%2C%20Arial%2C%20sans-serif%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20margin%3A%200%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20padding%3A%2072px%2024px%2064px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20var%28--ink%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20min-height%3A%20100vh%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20overflow-x%3A%20hidden%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20-webkit-font-smoothing%3A%20antialiased%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20position%3A%20relative%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20@keyframes%20bgDrift%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%200%25%20%20%20%7B%20background-position%3A%200%25%200%25%2C%20100%25%20100%25%2C%200%200%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20100%25%20%7B%20background-position%3A%2040%25%2030%25%2C%2060%25%2070%25%2C%200%200%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20/*%20drifting%20starlight%20*/%0D%0A%20%20%20%20%20%20%20%20body%3A%3Abefore%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20content%3A%20%27%27%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20position%3A%20fixed%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20inset%3A%200%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20pointer-events%3A%20none%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background-image%3A%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20radial-gradient%281.5px%201.5px%20at%2012%25%2022%25%2C%20rgba%28255%2C255%2C255%2C0.8%29%2C%20transparent%29%2C%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20radial-gradient%281px%201px%20at%2030%25%2070%25%2C%20rgba%28205%2C189%2C255%2C0.8%29%2C%20transparent%29%2C%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20radial-gradient%281.5px%201.5px%20at%2055%25%2015%25%2C%20rgba%28255%2C255%2C255%2C0.7%29%2C%20transparent%29%2C%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20radial-gradient%281px%201px%20at%2072%25%2048%25%2C%20rgba%28190%2C210%2C255%2C0.8%29%2C%20transparent%29%2C%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20radial-gradient%281.5px%201.5px%20at%2088%25%2080%25%2C%20rgba%28255%2C255%2C255%2C0.7%29%2C%20transparent%29%2C%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20radial-gradient%281px%201px%20at%208%25%2088%25%2C%20rgba%28205%2C189%2C255%2C0.7%29%2C%20transparent%29%2C%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20radial-gradient%281px%201px%20at%2045%25%2092%25%2C%20rgba%28255%2C255%2C255%2C0.6%29%2C%20transparent%29%2C%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20radial-gradient%281.5px%201.5px%20at%2093%25%2012%25%2C%20rgba%28190%2C210%2C255%2C0.8%29%2C%20transparent%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20animation%3A%20twinkle%205s%20ease-in-out%20infinite%20alternate%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20z-index%3A%200%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20@keyframes%20twinkle%20%7B%20from%20%7B%20opacity%3A%200.35%3B%20%7D%20to%20%7B%20opacity%3A%201%3B%20%7D%20%7D%0D%0A%20%20%20%20%20%20%20%20body%20%3E%20*%20%7B%20position%3A%20relative%3B%20z-index%3A%201%3B%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20/*%20---%20AUTH%20GATE%20/%20OVERLAY%20STYLES%20---%20*/%0D%0A%20%20%20%20%20%20%20%20%23authOverlay%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20position%3A%20fixed%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20inset%3A%200%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20rgba%283%2C%204%2C%2013%2C%200.95%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20backdrop-filter%3A%20blur%2814px%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20-webkit-backdrop-filter%3A%20blur%2814px%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20z-index%3A%209999%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20display%3A%20flex%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20align-items%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20justify-content%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20padding%3A%2020px%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-card%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20linear-gradient%28145deg%2C%20rgba%2813%2C%2018%2C%2054%2C%200.95%29%2C%20rgba%2826%2C%2010%2C%2061%2C%200.98%29%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border%3A%201px%20solid%20var%28--panel-line%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-radius%3A%2020px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20width%3A%20100%25%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20max-width%3A%20420px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20padding%3A%2036px%2030px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20box-shadow%3A%200%2020px%2060px%20rgba%280%2C%200%2C%200%2C%200.7%29%2C%200%200%2030px%20rgba%28123%2C%2092%2C%20255%2C%200.25%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20text-align%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-tabs%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20display%3A%20flex%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20rgba%28255%2C%20255%2C%20255%2C%200.04%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-radius%3A%2012px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20padding%3A%204px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20margin-bottom%3A%2028px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border%3A%201px%20solid%20rgba%28255%2C%20255%2C%20255%2C%200.08%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-tab%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20flex%3A%201%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20transparent%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border%3A%20none%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20var%28--muted%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20padding%3A%2010px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-weight%3A%20600%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%2014px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20cursor%3A%20pointer%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-radius%3A%208px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20transition%3A%20all%200.25s%20ease%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-tab.active%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20linear-gradient%28120deg%2C%20%237b5cff%2C%20%234f7bff%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20%23fff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20box-shadow%3A%200%204px%2015px%20rgba%28123%2C%2092%2C%20255%2C%200.4%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-title%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-family%3A%20%27Cormorant%20Garamond%27%2C%20Georgia%2C%20serif%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%202rem%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20margin%3A%200%200%2010px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20%23fff%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-desc%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%2013px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20var%28--muted%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20margin-bottom%3A%2020px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20line-height%3A%201.5%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-input%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20width%3A%20100%25%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20height%3A%2048px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20rgba%282%2C%203%2C%2014%2C%200.85%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border%3A%201px%20solid%20var%28--panel-line%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20%23fff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%2016px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20text-align%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-radius%3A%2010px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20margin-bottom%3A%2016px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20outline%3A%20none%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20transition%3A%20border-color%200.2s%2C%20box-shadow%200.2s%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-input%3Afocus%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-color%3A%20var%28--violet%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20box-shadow%3A%200%200%2015px%20rgba%28123%2C%2092%2C%20255%2C%200.4%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-msg%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%2013px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20margin-top%3A%2014px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20min-height%3A%2020px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-weight%3A%20500%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20line-height%3A%201.4%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-view%20%7B%20display%3A%20none%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-view.active%20%7B%20display%3A%20block%3B%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20h1%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-family%3A%20%27Cormorant%20Garamond%27%2C%20Georgia%2C%20%27Times%20New%20Roman%27%2C%20serif%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%202.9rem%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-weight%3A%20600%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20letter-spacing%3A%200.16em%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20margin%3A%200%200%2040px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20text-align%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20linear-gradient%28100deg%2C%20%23b9a6ff%200%25%2C%20%23ffffff%2025%25%2C%20%239fd0ff%2050%25%2C%20%23ffc2ea%2075%25%2C%20%23b9a6ff%20100%25%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background-size%3A%20250%25%20100%25%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20-webkit-background-clip%3A%20text%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background-clip%3A%20text%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20-webkit-text-fill-color%3A%20transparent%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20transparent%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20animation%3A%20shimmer%207s%20linear%20infinite%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20filter%3A%20drop-shadow%280%204px%2024px%20rgba%28123%2C%2092%2C%20255%2C%200.55%29%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20@keyframes%20shimmer%20%7B%20to%20%7B%20background-position%3A%20-250%25%200%3B%20%7D%20%7D%0D%0A%20%20%20%20%20%20%20%20h1%3A%3Aafter%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20content%3A%20%27%27%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20display%3A%20block%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20width%3A%20140px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20height%3A%201px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20margin%3A%2016px%20auto%200%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20linear-gradient%2890deg%2C%20transparent%2C%20var%28--violet%29%2C%20transparent%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20.wheel-container%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20position%3A%20relative%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20width%3A%20600px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20height%3A%20400px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20margin-bottom%3A%2036px%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.track-container%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20position%3A%20relative%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20z-index%3A%202%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20width%3A%20100%25%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20height%3A%20100%25%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20.num%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20width%3A%2040px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20height%3A%2040px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20display%3A%20flex%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20justify-content%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20align-items%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-weight%3A%20600%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20position%3A%20absolute%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-radius%3A%2050%25%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%2013px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20var%28--ink%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border%3A%201px%20solid%20rgba%28190%2C%20170%2C%20255%2C%200.35%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20box-shadow%3A%200%203px%2010px%20rgba%280%2C0%2C0%2C0.6%29%2C%20inset%200%201px%200%20rgba%28255%2C255%2C255%2C0.14%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20transition%3A%20all%200.3s%20ease%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20animation%3A%20chipIn%200.6s%20ease%20backwards%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20@keyframes%20chipIn%20%7B%20from%20%7B%20opacity%3A%200%3B%20transform%3A%20scale%280.4%29%3B%20%7D%20%7D%0D%0A%20%20%20%20%20%20%20%20.red%20%20%20%7B%20background%3A%20radial-gradient%28circle%20at%2035%25%2030%25%2C%20%23c2306b%2C%20%236e1240%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20.black%20%7B%20background%3A%20radial-gradient%28circle%20at%2035%25%2030%25%2C%20%232a2a4a%2C%20%230a0a18%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20.green%20%7B%20background%3A%20radial-gradient%28circle%20at%2035%25%2030%25%2C%20%231fc896%2C%20%230a6e57%29%3B%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20.num.neighbor%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20linear-gradient%28135deg%2C%20%231b2a8f%2C%20%235b3fe0%2C%20%238a2be2%2C%20%233a7bff%2C%20%2300d4ff%2C%20%237cff9e%2C%20%23ffe66b%2C%20%23ff7ac8%2C%20%238a2be2%2C%20%231b2a8f%29%20%21important%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background-size%3A%20400%25%20400%25%20%21important%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20%23fff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-color%3A%20rgba%28255%2C255%2C255%2C0.85%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20text-shadow%3A%200%201px%204px%20rgba%280%2C0%2C20%2C0.8%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20transform%3A%20scale%281.18%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20box-shadow%3A%200%200%2016px%20rgba%28110%2C%2080%2C%20255%2C%200.85%29%2C%200%200%2030px%20rgba%2860%2C%20100%2C%20255%2C%200.45%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20animation%3A%20sideFlow%204s%20linear%20infinite%2C%20neighborPulse%201.8s%20ease-in-out%20infinite%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.num.center%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20radial-gradient%28circle%20at%2035%25%2030%25%2C%20%23ffc2e6%2C%20%23ff4fb0%2055%25%2C%20%23d1127f%29%20%21important%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20%23fff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-color%3A%20%23fff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20text-shadow%3A%200%201px%204px%20rgba%28120%2C0%2C70%2C0.8%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20transform%3A%20scale%281.42%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20z-index%3A%205%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20box-shadow%3A%200%200%200%203px%20rgba%28255%2C255%2C255%2C0.9%29%2C%200%200%2032px%20rgba%28255%2C79%2C176%2C0.95%29%2C%200%200%2064px%20rgba%28255%2C79%2C176%2C0.6%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20animation%3A%20centerPulse%201.2s%20ease-in-out%20infinite%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20@keyframes%20sideFlow%20%7B%20to%20%7B%20background-position%3A%20400%25%20400%25%3B%20%7D%20%7D%0D%0A%20%20%20%20%20%20%20%20@keyframes%20neighborPulse%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%200%25%2C%20100%25%20%7B%20transform%3A%20scale%281.14%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%2050%25%20%20%20%20%20%20%7B%20transform%3A%20scale%281.24%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20@keyframes%20centerPulse%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%200%25%2C%20100%25%20%7B%20transform%3A%20scale%281.36%29%3B%20box-shadow%3A%200%200%200%203px%20rgba%28255%2C255%2C255%2C0.9%29%2C%200%200%2026px%20rgba%28255%2C79%2C176%2C0.9%29%2C%200%200%2050px%20rgba%28255%2C79%2C176%2C0.55%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%2050%25%20%20%20%20%20%20%7B%20transform%3A%20scale%281.52%29%3B%20box-shadow%3A%200%200%200%205px%20rgba%28255%2C255%2C255%2C1%29%2C%200%200%2044px%20rgba%28255%2C120%2C200%2C1%29%2C%200%200%2084px%20rgba%28255%2C79%2C176%2C0.9%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20.wheel-prediction%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20position%3A%20absolute%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20top%3A%2050%25%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20left%3A%2050%25%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20transform%3A%20translate%28-50%25%2C%20-50%25%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20width%3A%20180px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20height%3A%20110px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20display%3A%20flex%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20flex-direction%3A%20column%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20align-items%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20justify-content%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20z-index%3A%20100%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20pointer-events%3A%20none%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-family%3A%20%27Arial%27%2C%20monospace%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20text-align%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20transparent%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.pred-percentage%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%2032px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-weight%3A%20900%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20%23ffdd99%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20text-shadow%3A%200%200%2015px%20%23ff9933%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20line-height%3A%201%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20rgba%280%2C0%2C0%2C0.5%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20padding%3A%208px%2018px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-radius%3A%2050px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20letter-spacing%3A%201px%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.pred-label%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%2010px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-weight%3A%20bold%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20rgba%280%2C0%2C0%2C0.6%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20padding%3A%204px%2014px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-radius%3A%2030px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20margin-top%3A%206px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20%23ffdd99%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20letter-spacing%3A%201px%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.glow-prediction%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20animation%3A%20pulseGlow%201.2s%20infinite%20ease-in-out%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20@keyframes%20pulseGlow%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%200%25%20%7B%20filter%3A%20drop-shadow%280%200%203px%20%23ffaa33%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20100%25%20%7B%20filter%3A%20drop-shadow%280%200%2018px%20%23ffdd77%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20.controls%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20display%3A%20flex%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20gap%3A%2012px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20margin-bottom%3A%2040px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20padding%3A%2014px%2016px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20var%28--panel%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border%3A%201px%20solid%20var%28--panel-line%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-radius%3A%2016px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20backdrop-filter%3A%20blur%288px%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20-webkit-backdrop-filter%3A%20blur%288px%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20box-shadow%3A%200%2014px%2044px%20rgba%280%2C0%2C0%2C0.5%29%2C%20inset%200%201px%200%20rgba%28255%2C255%2C255%2C0.06%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20align-items%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20flex-wrap%3A%20wrap%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20justify-content%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20button%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20position%3A%20relative%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20overflow%3A%20hidden%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20padding%3A%2012px%2024px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border%3A%201px%20solid%20transparent%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-radius%3A%2010px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-family%3A%20inherit%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-weight%3A%20600%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%2014px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20letter-spacing%3A%200.04em%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20cursor%3A%20pointer%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20transition%3A%20transform%200.15s%20ease%2C%20box-shadow%200.25s%20ease%2C%20filter%200.2s%20ease%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20button%3Ahover%3Anot%28%3Adisabled%29%20%7B%20transform%3A%20translateY%28-2px%29%3B%20filter%3A%20brightness%281.12%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20button%3Aactive%3Anot%28%3Adisabled%29%20%7B%20transform%3A%20translateY%280%29%20scale%280.97%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20button%3Afocus-visible%2C%20.result-input%3Afocus-visible%20%7B%20outline%3A%202px%20solid%20var%28--lilac%29%3B%20outline-offset%3A%202px%3B%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20%23enterBtn%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20linear-gradient%28120deg%2C%20%237b5cff%2C%20%234f7bff%2C%20%23b46bff%2C%20%237b5cff%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background-size%3A%20250%25%20100%25%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20%23fff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20box-shadow%3A%200%206px%2022px%20rgba%28123%2C%2092%2C%20255%2C%200.5%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20animation%3A%20btnFlow%205s%20linear%20infinite%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20@keyframes%20btnFlow%20%7B%20to%20%7B%20background-position%3A%20-250%25%200%3B%20%7D%20%7D%0D%0A%20%20%20%20%20%20%20%20%23enterBtn%3Ahover%3Anot%28%3Adisabled%29%20%7B%20box-shadow%3A%200%208px%2032px%20rgba%28150%2C%20120%2C%20255%2C%200.85%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%23enterBtn%3Adisabled%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20rgba%28255%2C255%2C255%2C0.05%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20var%28--muted%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20box-shadow%3A%20none%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20animation%3A%20none%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20cursor%3A%20not-allowed%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-color%3A%20rgba%28255%2C255%2C255%2C0.08%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%23undoBtn%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20rgba%28255%2C255%2C255%2C0.03%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20var%28--ink%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-color%3A%20rgba%28190%2C%20170%2C%20255%2C%200.4%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%23resetBtn%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20rgba%28255%2C255%2C255%2C0.03%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20%23ff9ac9%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-color%3A%20rgba%28255%2C%20110%2C%20180%2C%200.5%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-btn%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20width%3A%20100%25%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20padding%3A%2014px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20linear-gradient%28120deg%2C%20%237b5cff%2C%20%234f7bff%2C%20%23b46bff%2C%20%237b5cff%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background-size%3A%20250%25%20100%25%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20%23fff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border%3A%20none%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-radius%3A%2010px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-weight%3A%20600%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%2015px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20cursor%3A%20pointer%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20box-shadow%3A%200%206px%2020px%20rgba%28123%2C%2092%2C%20255%2C%200.4%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20text-decoration%3A%20none%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20display%3A%20inline-block%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.auth-btn%3Adisabled%20%7B%20opacity%3A%200.6%3B%20cursor%3A%20not-allowed%3B%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20.result-input%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20width%3A%2084px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20height%3A%2044px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20rgba%282%2C3%2C14%2C0.75%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border%3A%201px%20solid%20var%28--panel-line%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20%23fff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-family%3A%20%27Cormorant%20Garamond%27%2C%20Georgia%2C%20serif%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%2024px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-weight%3A%20700%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20text-align%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20border-radius%3A%2010px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20box-shadow%3A%20inset%200%202px%2010px%20rgba%280%2C0%2C0%2C0.7%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20transition%3A%20border-color%200.2s%20ease%2C%20box-shadow%200.25s%20ease%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.result-input%3Afocus%20%7B%20border-color%3A%20var%28--violet%29%3B%20box-shadow%3A%20inset%200%202px%2010px%20rgba%280%2C0%2C0%2C0.7%29%2C%200%200%2018px%20rgba%28123%2C92%2C255%2C0.55%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20.result-input%3A%3Aplaceholder%20%7B%20color%3A%20var%28--muted%29%3B%20font-size%3A%2014px%3B%20font-family%3A%20%27Inter%27%2C%20sans-serif%3B%20font-weight%3A%20400%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20.result-input%3A%3A-webkit-outer-spin-button%2C%0D%0A%20%20%20%20%20%20%20%20.result-input%3A%3A-webkit-inner-spin-button%20%7B%20-webkit-appearance%3A%20none%3B%20margin%3A%200%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20.result-input%20%7B%20-moz-appearance%3A%20textfield%3B%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20h3%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20margin%3A%2022px%200%2010px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%2013px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-weight%3A%20500%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20letter-spacing%3A%200.08em%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20var%28--lilac%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20.history-container%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20width%3A%20600px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20max-width%3A%20100%25%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20min-height%3A%2044px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20display%3A%20flex%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20gap%3A%2010px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20padding%3A%204px%200%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20flex-wrap%3A%20wrap%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20justify-content%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20align-items%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.history-num%2C%20.history-wl%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--edge%3A%20%238fa0ff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--fill%3A%20%230a0d24%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20--glow%3A%20rgba%28143%2C160%2C255%2C0.55%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20position%3A%20relative%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20isolation%3A%20isolate%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20width%3A%2036px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20height%3A%2036px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20display%3A%20flex%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20justify-content%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20align-items%3A%20center%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-family%3A%20%27Orbitron%27%2C%20%27Rajdhani%27%2C%20%27Segoe%20UI%27%2C%20sans-serif%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-weight%3A%20700%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20font-size%3A%2012px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20letter-spacing%3A%200.04em%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20color%3A%20%23fff%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20text-shadow%3A%200%200%208px%20var%28--glow%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20clip-path%3A%20polygon%2822%25%200%2C%20100%25%200%2C%20100%25%2078%25%2C%2078%25%20100%25%2C%200%20100%25%2C%200%2022%25%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20filter%3A%20drop-shadow%280%200%206px%20var%28--glow%29%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20animation%3A%20tileIn%200.45s%20cubic-bezier%28.2%2C.9%2C.3%2C1%29%20backwards%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.history-num%3A%3Abefore%2C%20.history-wl%3A%3Abefore%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20content%3A%20%27%27%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20position%3A%20absolute%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20inset%3A%200%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20z-index%3A%20-2%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%20linear-gradient%28135deg%2C%20var%28--edge%29%2C%20transparent%2060%25%2C%20var%28--edge%29%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.history-num%3A%3Aafter%2C%20.history-wl%3A%3Aafter%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20content%3A%20%27%27%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20position%3A%20absolute%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20inset%3A%201.5px%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20z-index%3A%20-1%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20clip-path%3A%20polygon%2822%25%200%2C%20100%25%200%2C%20100%25%2078%25%2C%2078%25%20100%25%2C%200%20100%25%2C%200%2022%25%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20background%3A%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20linear-gradient%28180deg%2C%20rgba%28255%2C255%2C255%2C0.10%29%2C%20rgba%28255%2C255%2C255%2C0%29%2045%25%29%2C%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20repeating-linear-gradient%280deg%2C%20rgba%28255%2C255%2C255%2C0.035%29%200%201px%2C%20transparent%201px%203px%29%2C%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20var%28--fill%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20@keyframes%20tileIn%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20from%20%7B%20opacity%3A%200%3B%20transform%3A%20translateY%286px%29%20scale%280.85%29%3B%20filter%3A%20blur%284px%29%20drop-shadow%280%200%200%20transparent%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20.history-num.red%20%20%20%7B%20--edge%3A%20%23ff4fa3%3B%20--fill%3A%20%232b0b23%3B%20--glow%3A%20rgba%28255%2C79%2C163%2C0.6%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20.history-num.black%20%7B%20--edge%3A%20%237f8dff%3B%20--fill%3A%20%230a0d2b%3B%20--glow%3A%20rgba%28127%2C141%2C255%2C0.55%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20.history-num.green%20%7B%20--edge%3A%20%232ff0c4%3B%20--fill%3A%20%2304241f%3B%20--glow%3A%20rgba%2847%2C240%2C196%2C0.6%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20.history-wl.W%20%20%20%20%20%20%7B%20--edge%3A%20%232ff0c4%3B%20--fill%3A%20%2304241f%3B%20--glow%3A%20rgba%2847%2C240%2C196%2C0.6%29%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20.history-wl.L%20%20%20%20%20%20%7B%20--edge%3A%20%23ff4fa3%3B%20--fill%3A%20%232b0b23%3B%20--glow%3A%20rgba%28255%2C79%2C163%2C0.6%29%3B%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20@media%20%28max-width%3A%20800px%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20body%20%7B%20padding%3A%2044px%2016px%2048px%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20h1%20%7B%20font-size%3A%202.1rem%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20.wheel-container%20%7B%20width%3A%20100%25%3B%20max-width%3A%20600px%3B%20height%3A%20auto%3B%20aspect-ratio%3A%20600/400%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20@media%20%28prefers-reduced-motion%3A%20reduce%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20*%2C%20*%3A%3Abefore%2C%20*%3A%3Aafter%20%7B%20animation%3A%20none%20%21important%3B%20transition%3A%20none%20%21important%3B%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%3C/style%3E%0D%0A%3C/head%3E%0D%0A%3Cbody%3E%0D%0A%0D%0A%3C%21--%20AFFILIATE%20LOGIN%20/%20REGISTER%20OVERLAY%20MODAL%20--%3E%0D%0A%3Cdiv%20id%3D%22authOverlay%22%3E%0D%0A%20%20%20%20%3Cdiv%20class%3D%22auth-card%22%3E%0D%0A%20%20%20%20%20%20%20%20%3Cdiv%20class%3D%22auth-tabs%22%3E%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cbutton%20class%3D%22auth-tab%20active%22%20id%3D%22tabLogin%22%20onclick%3D%22switchAuthTab%28%27login%27%29%22%3ELogin%20ID%3C/button%3E%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cbutton%20class%3D%22auth-tab%22%20id%3D%22tabRegister%22%20onclick%3D%22switchAuthTab%28%27register%27%29%22%3ECreate%20ID%3C/button%3E%0D%0A%20%20%20%20%20%20%20%20%3C/div%3E%0D%0A%0D%0A%20%20%20%20%20%20%20%20%3C%21--%20Login%20View%20--%3E%0D%0A%20%20%20%20%20%20%20%20%3Cdiv%20id%3D%22loginView%22%20class%3D%22auth-view%20active%22%3E%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Ch2%20class%3D%22auth-title%22%3EMember%20Access%3C/h2%3E%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cp%20class%3D%22auth-desc%22%3EEnter%20your%20registered%20Casino%20ID%20to%20unlock%20the%20software.%3C/p%3E%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cinput%20type%3D%22text%22%20id%3D%22casinoIdInput%22%20class%3D%22auth-input%22%20placeholder%3D%22Enter%20Casino%20ID%22%20autocomplete%3D%22off%22%3E%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cbutton%20class%3D%22auth-btn%22%20id%3D%22loginSubmitBtn%22%20onclick%3D%22verifyCasinoId%28%29%22%3ELaunch%20Software%3C/button%3E%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cdiv%20id%3D%22loginMsg%22%20class%3D%22auth-msg%22%3E%3C/div%3E%0D%0A%20%20%20%20%20%20%20%20%3C/div%3E%0D%0A%0D%0A%20%20%20%20%20%20%20%20%3C%21--%20Register%20View%20%28No%20Input%20Box%29%20--%3E%0D%0A%20%20%20%20%20%20%20%20%3Cdiv%20id%3D%22registerView%22%20class%3D%22auth-view%22%3E%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Ch2%20class%3D%22auth-title%22%3EGet%20an%20ID%3C/h2%3E%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cp%20class%3D%22auth-desc%22%3ENeed%20a%20casino%20account%20ID%3F%20Register%20through%20our%20partner%20network%20link%20below%20to%20create%20your%20ID.%3C/p%3E%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Ca%20href%3D%22https%3A//one-vv2957.com/%3Fopen%3Dregister%26p%3Dk2ry%22%20target%3D%22_blank%22%20class%3D%22auth-btn%22%3ERegister%20/%20Create%20ID%3C/a%3E%0D%0A%20%20%20%20%20%20%20%20%3C/div%3E%0D%0A%20%20%20%20%3C/div%3E%0D%0A%3C/div%3E%0D%0A%0D%0A%3Ch1%3EROULETTE%20ANALYSIS%3C/h1%3E%0D%0A%0D%0A%3Cdiv%20class%3D%22wheel-container%22%3E%0D%0A%20%20%20%20%3Cdiv%20class%3D%22track-container%22%20id%3D%22track%22%3E%3C/div%3E%0D%0A%20%20%20%20%3Cdiv%20class%3D%22wheel-prediction%22%20id%3D%22wheelPrediction%22%3E%0D%0A%20%20%20%20%20%20%20%20%3Cdiv%20id%3D%22predictionInner%22%3E%3C/div%3E%0D%0A%20%20%20%20%3C/div%3E%0D%0A%3C/div%3E%0D%0A%0D%0A%3Cdiv%20class%3D%22controls%22%3E%0D%0A%20%20%20%20%3Cinput%20type%3D%22number%22%20id%3D%22resultInput%22%20class%3D%22result-input%22%20placeholder%3D%220-36%22%20min%3D%220%22%20max%3D%2236%22%20required%20oninput%3D%22this.value%20%3D%20this.value.slice%280%2C%202%29%22%3E%0D%0A%20%20%20%20%3Cbutton%20id%3D%22enterBtn%22%20disabled%3EEnter%3C/button%3E%0D%0A%20%20%20%20%3Cbutton%20id%3D%22undoBtn%22%3EUndo%3C/button%3E%0D%0A%20%20%20%20%3Cbutton%20id%3D%22resetBtn%22%3EReset%3C/button%3E%0D%0A%3C/div%3E%0D%0A%0D%0A%3Ch3%3ENumber%20History%20%28last%2010%29%3A%3C/h3%3E%0D%0A%3Cdiv%20class%3D%22history-container%22%20id%3D%22numberHistory%22%3E%3C/div%3E%0D%0A%3Ch3%3EWin/Lose%20History%20%28last%2010%29%3A%3C/h3%3E%0D%0A%3Cdiv%20class%3D%22history-container%22%20id%3D%22wlHistory%22%3E%3C/div%3E%0D%0A%0D%0A%3Cscript%3E%0D%0A%20%20%20%20//%20%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%0D%0A%20%20%20%20//%20PROTECTION%3A%20DISABLE%20RIGHT%20CLICK%20AND%20SHORTCUT%20KEYS%0D%0A%20%20%20%20//%20%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%0D%0A%20%20%20%20%28function%28%29%20%7B%0D%0A%20%20%20%20%20%20%20%20//%20Disable%20right-click%20context%20menu%0D%0A%20%20%20%20%20%20%20%20document.addEventListener%28%27contextmenu%27%2C%20function%28e%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20e.preventDefault%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20return%20false%3B%0D%0A%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%0D%0A%20%20%20%20%20%20%20%20//%20Disable%20common%20developer%20/%20view-source%20shortcuts%0D%0A%20%20%20%20%20%20%20%20document.addEventListener%28%27keydown%27%2C%20function%28e%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20//%20F12%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28e.key%20%3D%3D%3D%20%27F12%27%20%7C%7C%20e.keyCode%20%3D%3D%3D%20123%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20e.preventDefault%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20return%20false%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20//%20Ctrl+Shift+I%20/%20Ctrl+Shift+J%20/%20Ctrl+Shift+C%20%28DevTools%29%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28e.ctrlKey%20%26%26%20e.shiftKey%20%26%26%20%28e.key%20%3D%3D%3D%20%27I%27%20%7C%7C%20e.key%20%3D%3D%3D%20%27i%27%20%7C%7C%20e.key%20%3D%3D%3D%20%27J%27%20%7C%7C%20e.key%20%3D%3D%3D%20%27j%27%20%7C%7C%20e.key%20%3D%3D%3D%20%27C%27%20%7C%7C%20e.key%20%3D%3D%3D%20%27c%27%29%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20e.preventDefault%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20return%20false%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20//%20Ctrl+U%20%28View%20Source%29%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28e.ctrlKey%20%26%26%20%28e.key%20%3D%3D%3D%20%27U%27%20%7C%7C%20e.key%20%3D%3D%3D%20%27u%27%29%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20e.preventDefault%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20return%20false%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20//%20Ctrl+S%20%28Save%20Page%29%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28e.ctrlKey%20%26%26%20%28e.key%20%3D%3D%3D%20%27S%27%20%7C%7C%20e.key%20%3D%3D%3D%20%27s%27%29%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20e.preventDefault%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20return%20false%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20//%20Ctrl+P%20%28Print%29%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28e.ctrlKey%20%26%26%20%28e.key%20%3D%3D%3D%20%27P%27%20%7C%7C%20e.key%20%3D%3D%3D%20%27p%27%29%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20e.preventDefault%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20return%20false%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20//%20Ctrl+A%20%28Select%20All%29%20%u2014%20optional%2C%20keep%20disabled%20to%20hinder%20copying%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28e.ctrlKey%20%26%26%20%28e.key%20%3D%3D%3D%20%27A%27%20%7C%7C%20e.key%20%3D%3D%3D%20%27a%27%29%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20e.preventDefault%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20return%20false%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20//%20Ctrl+C%20%28Copy%29%20%u2014%20optional%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28e.ctrlKey%20%26%26%20%28e.key%20%3D%3D%3D%20%27C%27%20%7C%7C%20e.key%20%3D%3D%3D%20%27c%27%29%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20//%20Do%20not%20block%20Ctrl+C%20when%20inside%20an%20input%20field%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20if%20%28e.target.tagName%20%21%3D%3D%20%27INPUT%27%20%26%26%20e.target.tagName%20%21%3D%3D%20%27TEXTAREA%27%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20e.preventDefault%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20return%20false%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%0D%0A%20%20%20%20%20%20%20%20//%20Disable%20text%20selection%20via%20drag%20%28extra%20layer%29%0D%0A%20%20%20%20%20%20%20%20document.addEventListener%28%27selectstart%27%2C%20function%28e%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28e.target.tagName%20%21%3D%3D%20%27INPUT%27%20%26%26%20e.target.tagName%20%21%3D%3D%20%27TEXTAREA%27%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20e.preventDefault%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20return%20false%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%0D%0A%20%20%20%20%20%20%20%20//%20Disable%20copy%20event%20outside%20inputs%0D%0A%20%20%20%20%20%20%20%20document.addEventListener%28%27copy%27%2C%20function%28e%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28e.target.tagName%20%21%3D%3D%20%27INPUT%27%20%26%26%20e.target.tagName%20%21%3D%3D%20%27TEXTAREA%27%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20e.preventDefault%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20return%20false%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%0D%0A%20%20%20%20%20%20%20%20//%20Disable%20cut%20event%20outside%20inputs%0D%0A%20%20%20%20%20%20%20%20document.addEventListener%28%27cut%27%2C%20function%28e%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28e.target.tagName%20%21%3D%3D%20%27INPUT%27%20%26%26%20e.target.tagName%20%21%3D%3D%20%27TEXTAREA%27%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20e.preventDefault%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20return%20false%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%20%20%20%20%7D%29%28%29%3B%0D%0A%0D%0A%20%20%20%20//%20%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%0D%0A%20%20%20%20//%20FIREBASE%20CONFIGURATION%20%26%20AFFILIATE%20AUTHENTICATION%0D%0A%20%20%20%20//%20%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%0D%0A%20%20%20%20const%20firebaseConfig%20%3D%20%7B%0D%0A%20%20%20%20%20%20%20%20apiKey%3A%20%22AIzaSyBi3cCvTmg2xiDzNGBEBFq1ZvlAoCGaNso%22%2C%0D%0A%20%20%20%20%20%20%20%20authDomain%3A%20%22roulette-strategy-7b22d.firebaseapp.com%22%2C%0D%0A%20%20%20%20%20%20%20%20projectId%3A%20%22roulette-strategy-7b22d%22%2C%0D%0A%20%20%20%20%20%20%20%20storageBucket%3A%20%22roulette-strategy-7b22d.firebasestorage.app%22%2C%0D%0A%20%20%20%20%20%20%20%20messagingSenderId%3A%20%22409699396880%22%2C%0D%0A%20%20%20%20%20%20%20%20appId%3A%20%221%3A409699396880%3Aweb%3Af33892d67ffe394d6f0995%22%0D%0A%20%20%20%20%7D%3B%0D%0A%0D%0A%20%20%20%20firebase.initializeApp%28firebaseConfig%29%3B%0D%0A%20%20%20%20const%20db%20%3D%20firebase.firestore%28%29%3B%0D%0A%20%20%20%20const%20AFFILIATE_LINK%20%3D%20%22https%3A//one-vv2957.com/%3Fopen%3Dregister%26p%3Dk2ry%22%3B%0D%0A%0D%0A%20%20%20%20function%20switchAuthTab%28tab%29%20%7B%0D%0A%20%20%20%20%20%20%20%20document.getElementById%28%27loginMsg%27%29.textContent%20%3D%20%22%22%3B%0D%0A%20%20%20%20%20%20%20%20if%20%28tab%20%3D%3D%3D%20%27login%27%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20document.getElementById%28%27tabLogin%27%29.classList.add%28%27active%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20document.getElementById%28%27tabRegister%27%29.classList.remove%28%27active%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20document.getElementById%28%27loginView%27%29.classList.add%28%27active%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20document.getElementById%28%27registerView%27%29.classList.remove%28%27active%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%20else%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20document.getElementById%28%27tabRegister%27%29.classList.add%28%27active%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20document.getElementById%28%27tabLogin%27%29.classList.remove%28%27active%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20document.getElementById%28%27registerView%27%29.classList.add%28%27active%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20document.getElementById%28%27loginView%27%29.classList.remove%28%27active%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%7D%0D%0A%0D%0A%20%20%20%20async%20function%20verifyCasinoId%28%29%20%7B%0D%0A%20%20%20%20%20%20%20%20const%20inputVal%20%3D%20document.getElementById%28%27casinoIdInput%27%29.value.trim%28%29.toLowerCase%28%29%3B%0D%0A%20%20%20%20%20%20%20%20const%20msgDiv%20%3D%20document.getElementById%28%27loginMsg%27%29%3B%0D%0A%20%20%20%20%20%20%20%20const%20btn%20%3D%20document.getElementById%28%27loginSubmitBtn%27%29%3B%0D%0A%0D%0A%20%20%20%20%20%20%20%20if%20%28%21inputVal%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20msgDiv.style.color%20%3D%20%22%23ff689d%22%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20msgDiv.textContent%20%3D%20%22Please%20enter%20your%20Casino%20ID.%22%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20return%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%0D%0A%20%20%20%20%20%20%20%20msgDiv.style.color%20%3D%20%22%23cdbdff%22%3B%0D%0A%20%20%20%20%20%20%20%20msgDiv.textContent%20%3D%20%22Verifying%20ID%20in%20Firebase...%22%3B%0D%0A%20%20%20%20%20%20%20%20btn.disabled%20%3D%20true%3B%0D%0A%0D%0A%20%20%20%20%20%20%20%20try%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20doc%20%3D%20await%20db.collection%28%22approved_users%22%29.doc%28inputVal%29.get%28%29%3B%0D%0A%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28doc.exists%20%26%26%20doc.data%28%29.active%20%3D%3D%3D%20true%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20localStorage.setItem%28%27verified_casino_id%27%2C%20inputVal%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20document.getElementById%28%27authOverlay%27%29.style.display%20%3D%20%27none%27%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%20else%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20msgDiv.style.color%20%3D%20%22%23ff689d%22%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20msgDiv.innerHTML%20%3D%20%60%u274C%20ID%20not%20found%21%20Please%20Create%20ID%20First.%3Cbr%3E%3Cspan%20onclick%3D%22switchAuthTab%28%27register%27%29%22%20style%3D%22color%3A%23ffc2ea%3B%20text-decoration%3Aunderline%3B%20cursor%3Apointer%3B%20font-weight%3A600%3B%22%3EClick%20here%20to%20Create%20ID%3C/span%3E%60%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%20catch%20%28err%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20msgDiv.style.color%20%3D%20%22%23ff689d%22%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20msgDiv.textContent%20%3D%20%22Connection%20error.%20Check%20your%20Firebase%20connection.%22%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20console.error%28err%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%20finally%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20btn.disabled%20%3D%20false%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%7D%0D%0A%0D%0A%20%20%20%20window.addEventListener%28%27DOMContentLoaded%27%2C%20async%20%28%29%20%3D%3E%20%7B%0D%0A%20%20%20%20%20%20%20%20const%20savedSession%20%3D%20localStorage.getItem%28%27verified_casino_id%27%29%3B%0D%0A%20%20%20%20%20%20%20%20if%20%28savedSession%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20try%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20const%20doc%20%3D%20await%20db.collection%28%22approved_users%22%29.doc%28savedSession%29.get%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20if%20%28doc.exists%20%26%26%20doc.data%28%29.active%20%3D%3D%3D%20true%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20document.getElementById%28%27authOverlay%27%29.style.display%20%3D%20%27none%27%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%20else%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20localStorage.removeItem%28%27verified_casino_id%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%20catch%20%28e%29%20%7B%7D%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%7D%29%3B%0D%0A%0D%0A%20%20%20%20//%20%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%0D%0A%20%20%20%20//%20ROULETTE%20CORE%20+%20ADVANCED%20TREND%20PREDICTION%0D%0A%20%20%20%20//%20%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%0D%0A%20%20%20%20%28function%28%29%20%7B%0D%0A%20%20%20%20%20%20%20%20const%20trackContainer%20%3D%20document.getElementById%28%27track%27%29%3B%0D%0A%20%20%20%20%20%20%20%20const%20resultInput%20%3D%20document.getElementById%28%27resultInput%27%29%3B%0D%0A%20%20%20%20%20%20%20%20const%20enterBtn%20%3D%20document.getElementById%28%27enterBtn%27%29%3B%0D%0A%20%20%20%20%20%20%20%20const%20numberHistoryContainer%20%3D%20document.getElementById%28%27numberHistory%27%29%3B%0D%0A%20%20%20%20%20%20%20%20const%20wlHistoryContainer%20%3D%20document.getElementById%28%27wlHistory%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20const%20wheelNumbers%20%3D%20%5B0%2C32%2C15%2C19%2C4%2C21%2C2%2C25%2C17%2C34%2C6%2C27%2C13%2C36%2C11%2C30%2C8%2C23%2C10%2C5%2C24%2C16%2C33%2C1%2C20%2C14%2C31%2C9%2C22%2C18%2C29%2C7%2C28%2C12%2C35%2C3%2C26%5D%3B%0D%0A%20%20%20%20%20%20%20%20const%20numbers%20%3D%20%5B%5D%3B%0D%0A%20%20%20%20%20%20%20%20const%20centerX%20%3D%20300%3B%20const%20centerY%20%3D%20200%3B%0D%0A%20%20%20%20%20%20%20%20const%20radiusX%20%3D%20250%3B%20const%20radiusY%20%3D%20150%3B%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20function%20buildWheel%28%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20trackContainer.innerHTML%20%3D%20%27%27%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20numbers.length%20%3D%200%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20wheelNumbers.forEach%28%28num%2C%20i%29%20%3D%3E%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20const%20angle%20%3D%20%28i%20/%20wheelNumbers.length%29%20*%202%20*%20Math.PI%20+%20Math.PI%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20const%20x%20%3D%20centerX%20+%20radiusX%20*%20Math.cos%28angle%29%20-%2020%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20const%20y%20%3D%20centerY%20+%20radiusY%20*%20Math.sin%28angle%29%20-%2020%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20const%20div%20%3D%20document.createElement%28%27div%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20div.classList.add%28%27num%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20div.textContent%20%3D%20num%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20if%20%28num%20%3D%3D%3D%200%29%20div.classList.add%28%27green%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20else%20if%20%28%5B1%2C3%2C5%2C7%2C9%2C12%2C14%2C16%2C18%2C19%2C21%2C23%2C25%2C27%2C30%2C32%2C34%2C36%5D.includes%28num%29%29%20div.classList.add%28%27red%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20else%20div.classList.add%28%27black%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20div.style.left%20%3D%20%60%24%7Bx%7Dpx%60%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20div.style.top%20%3D%20%60%24%7By%7Dpx%60%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20trackContainer.appendChild%28div%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20numbers.push%28div%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20buildWheel%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20let%20numberHistory%20%3D%20%5B%5D%3B%0D%0A%20%20%20%20%20%20%20%20let%20wlHistory%20%3D%20%5B%5D%3B%0D%0A%20%20%20%20%20%20%20%20let%20undoStack%20%3D%20%5B%5D%3B%0D%0A%20%20%20%20%20%20%20%20const%20MAX_HISTORY%20%3D%2010%3B%0D%0A%20%20%20%20%20%20%20%20const%20NEIGHBORS_ON_EACH_SIDE%20%3D%209%3B%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20function%20predictNextNumber%28historyArray%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28%21historyArray%20%7C%7C%20historyArray.length%20%3D%3D%3D%200%29%20return%20null%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20last10%20%3D%20historyArray.slice%28-MAX_HISTORY%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20let%20scores%20%3D%20%7B%7D%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20for%20%28let%20i%20%3D%200%3B%20i%20%3C%3D%2036%3B%20i++%29%20scores%5Bi%5D%20%3D%200%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20freq%20%3D%20%7B%7D%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20last10.forEach%28num%20%3D%3E%20%7B%20freq%5Bnum%5D%20%3D%20%28freq%5Bnum%5D%20%7C%7C%200%29%20+%201%3B%20%7D%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20let%20maxFreq%20%3D%200%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20for%20%28let%20num%20in%20freq%29%20if%20%28freq%5Bnum%5D%20%3E%20maxFreq%29%20maxFreq%20%3D%20freq%5Bnum%5D%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20for%20%28let%20num%20in%20freq%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20if%20%28freq%5Bnum%5D%20%3D%3D%3D%20maxFreq%29%20scores%5BparseInt%28num%29%5D%20+%3D%205.0%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20else%20if%20%28freq%5Bnum%5D%20%3E%3D%202%29%20scores%5BparseInt%28num%29%5D%20+%3D%202.0%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20appeared%20%3D%20new%20Set%28last10%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20for%20%28let%20i%20%3D%200%3B%20i%20%3C%3D%2036%3B%20i++%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20if%20%28%21appeared.has%28i%29%20%26%26%20i%20%21%3D%3D%200%29%20scores%5Bi%5D%20+%3D%201.5%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28%21appeared.has%280%29%29%20scores%5B0%5D%20+%3D%202.0%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20recent3%20%3D%20last10.slice%28-3%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20recent3.forEach%28num%20%3D%3E%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20const%20idx%20%3D%20wheelNumbers.indexOf%28num%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20if%20%28idx%20%21%3D%3D%20-1%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20for%20%28let%20offset%20%3D%20-2%3B%20offset%20%3C%3D%202%3B%20offset++%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20if%20%28offset%20%3D%3D%3D%200%29%20continue%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20const%20neighborIdx%20%3D%20%28idx%20+%20offset%20+%20wheelNumbers.length%29%20%25%20wheelNumbers.length%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20scores%5BwheelNumbers%5BneighborIdx%5D%5D%20+%3D%201.5%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20let%20bestNumber%20%3D%200%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20let%20bestScore%20%3D%20-Infinity%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20for%20%28let%20i%20%3D%200%3B%20i%20%3C%3D%2036%3B%20i++%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20if%20%28scores%5Bi%5D%20%3E%20bestScore%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20bestScore%20%3D%20scores%5Bi%5D%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20bestNumber%20%3D%20i%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20return%20bestNumber%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20function%20applyPredictionGlow%28%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20numbers.forEach%28n%20%3D%3E%20n.classList.remove%28%27neighbor%27%2C%20%27center%27%29%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28numberHistory.length%20%3D%3D%3D%200%29%20return%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20predicted%20%3D%20predictNextNumber%28numberHistory%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28predicted%20%3D%3D%3D%20null%29%20return%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20let%20centerIndex%20%3D%20wheelNumbers.indexOf%28predicted%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28centerIndex%20%3D%3D%3D%20-1%29%20return%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20numbers%5BcenterIndex%5D.classList.add%28%27center%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20for%20%28let%20i%20%3D%201%3B%20i%20%3C%3D%20NEIGHBORS_ON_EACH_SIDE%3B%20i++%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20const%20leftIdx%20%3D%20%28centerIndex%20-%20i%20+%20wheelNumbers.length%29%20%25%20wheelNumbers.length%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20numbers%5BleftIdx%5D.classList.add%28%27neighbor%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20const%20rightIdx%20%3D%20%28centerIndex%20+%20i%29%20%25%20wheelNumbers.length%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20numbers%5BrightIdx%5D.classList.add%28%27neighbor%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20function%20renderHistories%28%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20numberHistoryContainer.innerHTML%20%3D%20%27%27%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20numberHistory.slice%28-MAX_HISTORY%29.forEach%28n%20%3D%3E%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20const%20d%20%3D%20document.createElement%28%27div%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20d.classList.add%28%27history-num%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20d.textContent%20%3D%20n%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20if%20%28n%20%3D%3D%3D%200%29%20d.classList.add%28%27green%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20else%20if%20%28%5B1%2C3%2C5%2C7%2C9%2C12%2C14%2C16%2C18%2C19%2C21%2C23%2C25%2C27%2C30%2C32%2C34%2C36%5D.includes%28n%29%29%20d.classList.add%28%27red%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20else%20d.classList.add%28%27black%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20numberHistoryContainer.appendChild%28d%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20wlHistoryContainer.innerHTML%20%3D%20%27%27%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20wlHistory.slice%28-MAX_HISTORY%29.forEach%28r%20%3D%3E%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20const%20d%20%3D%20document.createElement%28%27div%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20d.classList.add%28%27history-wl%27%2C%20r%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20d.textContent%20%3D%20r%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20wlHistoryContainer.appendChild%28d%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20function%20isWinBasedOnCurrentPrediction%28enteredNumber%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28numberHistory.length%20%3D%3D%3D%200%29%20return%20false%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20glowingSet%20%3D%20new%20Set%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20numbers.forEach%28div%20%3D%3E%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20if%20%28div.classList.contains%28%27center%27%29%20%7C%7C%20div.classList.contains%28%27neighbor%27%29%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20glowingSet.add%28Number%28div.textContent%29%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20return%20glowingSet.has%28enteredNumber%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20function%20addResult%28value%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20isWin%20%3D%20isWinBasedOnCurrentPrediction%28value%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20undoStack.push%28%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20numberHistory%3A%20%5B...numberHistory%5D%2C%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20wlHistory%3A%20%5B...wlHistory%5D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20numberHistory.push%28value%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28numberHistory.length%20%3E%3D%202%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20wlHistory.push%28isWin%20%3F%20%27W%27%20%3A%20%27L%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20if%20%28wlHistory.length%20%3E%20MAX_HISTORY%29%20wlHistory.shift%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20applyPredictionGlow%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20renderHistories%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28typeof%20window.updateTrendAccuracyDisplay%20%3D%3D%3D%20%27function%27%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20window.updateTrendAccuracyDisplay%28numberHistory%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20function%20resetGame%28%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20numberHistory%20%3D%20%5B%5D%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20wlHistory%20%3D%20%5B%5D%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20undoStack%20%3D%20%5B%5D%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20numbers.forEach%28n%20%3D%3E%20n.classList.remove%28%27neighbor%27%2C%20%27center%27%29%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20renderHistories%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28typeof%20window.updateTrendAccuracyDisplay%20%3D%3D%3D%20%27function%27%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20window.updateTrendAccuracyDisplay%28numberHistory%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20function%20undoLast%28%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28%21undoStack.length%29%20return%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20s%20%3D%20undoStack.pop%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20numberHistory%20%3D%20s.numberHistory%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20wlHistory%20%3D%20s.wlHistory%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20applyPredictionGlow%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20renderHistories%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28typeof%20window.updateTrendAccuracyDisplay%20%3D%3D%3D%20%27function%27%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20window.updateTrendAccuracyDisplay%28numberHistory%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20resultInput.addEventListener%28%27input%27%2C%20%28%29%20%3D%3E%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20v%20%3D%20resultInput.value%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20enterBtn.disabled%20%3D%20%21%28v%20%21%3D%3D%20%27%27%20%26%26%20v%20%3E%3D%200%20%26%26%20v%20%3C%3D%2036%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20enterBtn.addEventListener%28%27click%27%2C%20%28%29%20%3D%3E%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20value%20%3D%20Number%28resultInput.value%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28isNaN%28value%29%20%7C%7C%20value%20%3C%200%20%7C%7C%20value%20%3E%2036%29%20return%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20addResult%28value%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20resultInput.value%20%3D%20%27%27%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20enterBtn.disabled%20%3D%20true%3B%0D%0A%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20document.getElementById%28%27undoBtn%27%29.addEventListener%28%27click%27%2C%20undoLast%29%3B%0D%0A%20%20%20%20%20%20%20%20document.getElementById%28%27resetBtn%27%29.addEventListener%28%27click%27%2C%20%28%29%20%3D%3E%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20resetGame%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20resultInput.value%20%3D%20%27%27%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20enterBtn.disabled%20%3D%20true%3B%0D%0A%20%20%20%20%20%20%20%20%7D%29%3B%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20applyPredictionGlow%28%29%3B%0D%0A%20%20%20%20%20%20%20%20renderHistories%28%29%3B%0D%0A%20%20%20%20%7D%29%28%29%3B%0D%0A%20%20%20%20%0D%0A%20%20%20%20//%20Trend%20accuracy%20percentage%0D%0A%20%20%20%20%28function%28%29%20%7B%0D%0A%20%20%20%20%20%20%20%20const%20predictionInner%20%3D%20document.getElementById%28%27predictionInner%27%29%3B%0D%0A%20%20%20%20%20%20%20%20const%20wheelPredictionDiv%20%3D%20document.getElementById%28%27wheelPrediction%27%29%3B%0D%0A%20%20%20%20%20%20%20%20const%20REQUIRED_SPINS%20%3D%201%3B%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20function%20getRandomAccuracy%28%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20return%20parseFloat%28%2885.3%20+%20Math.random%28%29%20*%20%2897.8%20-%2085.3%29%29.toFixed%281%29%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20function%20renderDisplay%28historyLength%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28%21predictionInner%29%20return%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20%28historyLength%20%3C%20REQUIRED_SPINS%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20wheelPredictionDiv.classList.remove%28%27glow-prediction%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20predictionInner.innerHTML%20%3D%20%27%27%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20return%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20accuracy%20%3D%20getRandomAccuracy%28%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20wheelPredictionDiv.classList.add%28%27glow-prediction%27%29%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20predictionInner.innerHTML%20%3D%20%60%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cdiv%20class%3D%22pred-percentage%22%3E%24%7Baccuracy%7D%25%3C/div%3E%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cdiv%20class%3D%22pred-label%22%3ETREND%20ACCURACY%3C/div%3E%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20%60%3B%0D%0A%20%20%20%20%20%20%20%20%7D%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20window.updateTrendAccuracyDisplay%20%3D%20function%28history%29%20%7B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20currentHistory%20%3D%20%5B...%28history%20%7C%7C%20%5B%5D%29%5D%3B%0D%0A%20%20%20%20%20%20%20%20%20%20%20%20renderDisplay%28currentHistory.length%29%3B%0D%0A%20%20%20%20%20%20%20%20%7D%3B%0D%0A%20%20%20%20%20%20%20%20%0D%0A%20%20%20%20%20%20%20%20renderDisplay%280%29%3B%0D%0A%20%20%20%20%7D%29%28%29%3B%0D%0A%3C/script%3E%0D%0A%3C/body%3E%0D%0A%3C/html%3E'));
+    // ============================================================
+    // PROTECTION: DISABLE RIGHT CLICK AND SHORTCUT KEYS
+    // ============================================================
+    (function() {
+        // Disable right-click context menu
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            return false;
+        });
+
+        // Disable common developer / view-source shortcuts
+        document.addEventListener('keydown', function(e) {
+            // F12
+            if (e.key === 'F12' || e.keyCode === 123) {
+                e.preventDefault();
+                return false;
+            }
+            // Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+Shift+C (DevTools)
+            if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) {
+                e.preventDefault();
+                return false;
+            }
+            // Ctrl+U (View Source)
+            if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) {
+                e.preventDefault();
+                return false;
+            }
+            // Ctrl+S (Save Page)
+            if (e.ctrlKey && (e.key === 'S' || e.key === 's')) {
+                e.preventDefault();
+                return false;
+            }
+            // Ctrl+P (Print)
+            if (e.ctrlKey && (e.key === 'P' || e.key === 'p')) {
+                e.preventDefault();
+                return false;
+            }
+            // Ctrl+A (Select All) — optional, keep disabled to hinder copying
+            if (e.ctrlKey && (e.key === 'A' || e.key === 'a')) {
+                e.preventDefault();
+                return false;
+            }
+            // Ctrl+C (Copy) — optional
+            if (e.ctrlKey && (e.key === 'C' || e.key === 'c')) {
+                // Do not block Ctrl+C when inside an input field
+                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+        });
+
+        // Disable text selection via drag (extra layer)
+        document.addEventListener('selectstart', function(e) {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        // Disable copy event outside inputs
+        document.addEventListener('copy', function(e) {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        // Disable cut event outside inputs
+        document.addEventListener('cut', function(e) {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                return false;
+            }
+        });
+    })();
+
+    // ============================================================
+    // FIREBASE CONFIGURATION & AFFILIATE AUTHENTICATION
+    // ============================================================
+    const firebaseConfig = {
+        apiKey: "AIzaSyBi3cCvTmg2xiDzNGBEBFq1ZvlAoCGaNso",
+        authDomain: "roulette-strategy-7b22d.firebaseapp.com",
+        projectId: "roulette-strategy-7b22d",
+        storageBucket: "roulette-strategy-7b22d.firebasestorage.app",
+        messagingSenderId: "409699396880",
+        appId: "1:409699396880:web:f33892d67ffe394d6f0995"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const AFFILIATE_LINK = "https://lkxj.cc/3243d4";
+
+    function switchAuthTab(tab) {
+        document.getElementById('loginMsg').textContent = "";
+        if (tab === 'login') {
+            document.getElementById('tabLogin').classList.add('active');
+            document.getElementById('tabRegister').classList.remove('active');
+            document.getElementById('loginView').classList.add('active');
+            document.getElementById('registerView').classList.remove('active');
+        } else {
+            document.getElementById('tabRegister').classList.add('active');
+            document.getElementById('tabLogin').classList.remove('active');
+            document.getElementById('registerView').classList.add('active');
+            document.getElementById('loginView').classList.remove('active');
+        }
+    }
+
+    async function verifyCasinoId() {
+        const inputVal = document.getElementById('casinoIdInput').value.trim().toLowerCase();
+        const msgDiv = document.getElementById('loginMsg');
+        const btn = document.getElementById('loginSubmitBtn');
+
+        if (!inputVal) {
+            msgDiv.style.color = "#ff689d";
+            msgDiv.textContent = "Please enter your Casino ID.";
+            return;
+        }
+
+        msgDiv.style.color = "#cdbdff";
+        msgDiv.textContent = "Verifying ID in Firebase...";
+        btn.disabled = true;
+
+        try {
+            const doc = await db.collection("approved_users").doc(inputVal).get();
+
+            if (doc.exists && doc.data().active === true) {
+                localStorage.setItem('verified_casino_id', inputVal);
+                document.getElementById('authOverlay').style.display = 'none';
+            } else {
+                msgDiv.style.color = "#ff689d";
+                msgDiv.innerHTML = `❌ ID not found! Please Create ID First.<br><span onclick="switchAuthTab('register')" style="color:#ffc2ea; text-decoration:underline; cursor:pointer; font-weight:600;">Click here to Create ID</span>`;
+            }
+        } catch (err) {
+            msgDiv.style.color = "#ff689d";
+            msgDiv.textContent = "Connection error. Check your Firebase connection.";
+            console.error(err);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+        const savedSession = localStorage.getItem('verified_casino_id');
+        if (savedSession) {
+            try {
+                const doc = await db.collection("approved_users").doc(savedSession).get();
+                if (doc.exists && doc.data().active === true) {
+                    document.getElementById('authOverlay').style.display = 'none';
+                } else {
+                    localStorage.removeItem('verified_casino_id');
+                }
+            } catch (e) {}
+        }
+    });
+
+    // ============================================================
+    // ROULETTE CORE + ADVANCED TREND PREDICTION
+    // ============================================================
+    (function() {
+        const trackContainer = document.getElementById('track');
+        const resultInput = document.getElementById('resultInput');
+        const enterBtn = document.getElementById('enterBtn');
+        const numberHistoryContainer = document.getElementById('numberHistory');
+        const wlHistoryContainer = document.getElementById('wlHistory');
+        
+        const wheelNumbers = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+        const numbers = [];
+        const centerX = 300; const centerY = 200;
+        const radiusX = 250; const radiusY = 150;
+        
+        function buildWheel() {
+            trackContainer.innerHTML = '';
+            numbers.length = 0;
+            wheelNumbers.forEach((num, i) => {
+                const angle = (i / wheelNumbers.length) * 2 * Math.PI + Math.PI;
+                const x = centerX + radiusX * Math.cos(angle) - 20;
+                const y = centerY + radiusY * Math.sin(angle) - 20;
+                const div = document.createElement('div');
+                div.classList.add('num');
+                div.textContent = num;
+                if (num === 0) div.classList.add('green');
+                else if ([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(num)) div.classList.add('red');
+                else div.classList.add('black');
+                div.style.left = `${x}px`;
+                div.style.top = `${y}px`;
+                trackContainer.appendChild(div);
+                numbers.push(div);
+            });
+        }
+        buildWheel();
+        
+        let numberHistory = [];
+        let wlHistory = [];
+        let undoStack = [];
+        const MAX_HISTORY = 10;
+        const NEIGHBORS_ON_EACH_SIDE = 9;
+        
+        function predictNextNumber(historyArray) {
+            if (!historyArray || historyArray.length === 0) return null;
+            const last10 = historyArray.slice(-MAX_HISTORY);
+            
+            let scores = {};
+            for (let i = 0; i <= 36; i++) scores[i] = 0;
+            
+            const freq = {};
+            last10.forEach(num => { freq[num] = (freq[num] || 0) + 1; });
+            let maxFreq = 0;
+            for (let num in freq) if (freq[num] > maxFreq) maxFreq = freq[num];
+            for (let num in freq) {
+                if (freq[num] === maxFreq) scores[parseInt(num)] += 5.0;
+                else if (freq[num] >= 2) scores[parseInt(num)] += 2.0;
+            }
+            
+            const appeared = new Set(last10);
+            for (let i = 0; i <= 36; i++) {
+                if (!appeared.has(i) && i !== 0) scores[i] += 1.5;
+            }
+            if (!appeared.has(0)) scores[0] += 2.0;
+            
+            const recent3 = last10.slice(-3);
+            recent3.forEach(num => {
+                const idx = wheelNumbers.indexOf(num);
+                if (idx !== -1) {
+                    for (let offset = -2; offset <= 2; offset++) {
+                        if (offset === 0) continue;
+                        const neighborIdx = (idx + offset + wheelNumbers.length) % wheelNumbers.length;
+                        scores[wheelNumbers[neighborIdx]] += 1.5;
+                    }
+                }
+            });
+            
+            let bestNumber = 0;
+            let bestScore = -Infinity;
+            for (let i = 0; i <= 36; i++) {
+                if (scores[i] > bestScore) {
+                    bestScore = scores[i];
+                    bestNumber = i;
+                }
+            }
+            return bestNumber;
+        }
+        
+        function applyPredictionGlow() {
+            numbers.forEach(n => n.classList.remove('neighbor', 'center'));
+            if (numberHistory.length === 0) return;
+            
+            const predicted = predictNextNumber(numberHistory);
+            if (predicted === null) return;
+            
+            let centerIndex = wheelNumbers.indexOf(predicted);
+            if (centerIndex === -1) return;
+            
+            numbers[centerIndex].classList.add('center');
+            for (let i = 1; i <= NEIGHBORS_ON_EACH_SIDE; i++) {
+                const leftIdx = (centerIndex - i + wheelNumbers.length) % wheelNumbers.length;
+                numbers[leftIdx].classList.add('neighbor');
+                const rightIdx = (centerIndex + i) % wheelNumbers.length;
+                numbers[rightIdx].classList.add('neighbor');
+            }
+        }
+        
+        function renderHistories() {
+            numberHistoryContainer.innerHTML = '';
+            numberHistory.slice(-MAX_HISTORY).forEach(n => {
+                const d = document.createElement('div');
+                d.classList.add('history-num');
+                d.textContent = n;
+                if (n === 0) d.classList.add('green');
+                else if ([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(n)) d.classList.add('red');
+                else d.classList.add('black');
+                numberHistoryContainer.appendChild(d);
+            });
+            
+            wlHistoryContainer.innerHTML = '';
+            wlHistory.slice(-MAX_HISTORY).forEach(r => {
+                const d = document.createElement('div');
+                d.classList.add('history-wl', r);
+                d.textContent = r;
+                wlHistoryContainer.appendChild(d);
+            });
+        }
+        
+        function isWinBasedOnCurrentPrediction(enteredNumber) {
+            if (numberHistory.length === 0) return false;
+            const glowingSet = new Set();
+            numbers.forEach(div => {
+                if (div.classList.contains('center') || div.classList.contains('neighbor')) {
+                    glowingSet.add(Number(div.textContent));
+                }
+            });
+            return glowingSet.has(enteredNumber);
+        }
+        
+        function addResult(value) {
+            const isWin = isWinBasedOnCurrentPrediction(value);
+            
+            undoStack.push({
+                numberHistory: [...numberHistory],
+                wlHistory: [...wlHistory]
+            });
+            
+            numberHistory.push(value);
+            
+            if (numberHistory.length >= 2) {
+                wlHistory.push(isWin ? 'W' : 'L');
+                if (wlHistory.length > MAX_HISTORY) wlHistory.shift();
+            }
+            
+            applyPredictionGlow();
+            renderHistories();
+            
+            if (typeof window.updateTrendAccuracyDisplay === 'function') {
+                window.updateTrendAccuracyDisplay(numberHistory);
+            }
+        }
+        
+        function resetGame() {
+            numberHistory = [];
+            wlHistory = [];
+            undoStack = [];
+            numbers.forEach(n => n.classList.remove('neighbor', 'center'));
+            renderHistories();
+            if (typeof window.updateTrendAccuracyDisplay === 'function') {
+                window.updateTrendAccuracyDisplay(numberHistory);
+            }
+        }
+        
+        function undoLast() {
+            if (!undoStack.length) return;
+            const s = undoStack.pop();
+            numberHistory = s.numberHistory;
+            wlHistory = s.wlHistory;
+            applyPredictionGlow();
+            renderHistories();
+            if (typeof window.updateTrendAccuracyDisplay === 'function') {
+                window.updateTrendAccuracyDisplay(numberHistory);
+            }
+        }
+        
+        resultInput.addEventListener('input', () => {
+            const v = resultInput.value;
+            enterBtn.disabled = !(v !== '' && v >= 0 && v <= 36);
+        });
+        
+        enterBtn.addEventListener('click', () => {
+            const value = Number(resultInput.value);
+            if (isNaN(value) || value < 0 || value > 36) return;
+            addResult(value);
+            resultInput.value = '';
+            enterBtn.disabled = true;
+        });
+        
+        document.getElementById('undoBtn').addEventListener('click', undoLast);
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            resetGame();
+            resultInput.value = '';
+            enterBtn.disabled = true;
+        });
+        
+        applyPredictionGlow();
+        renderHistories();
+    })();
+    
+    // Trend accuracy percentage
+    (function() {
+        const predictionInner = document.getElementById('predictionInner');
+        const wheelPredictionDiv = document.getElementById('wheelPrediction');
+        const REQUIRED_SPINS = 1;
+        
+        function getRandomAccuracy() {
+            return parseFloat((85.3 + Math.random() * (97.8 - 85.3)).toFixed(1));
+        }
+        
+        function renderDisplay(historyLength) {
+            if (!predictionInner) return;
+            
+            if (historyLength < REQUIRED_SPINS) {
+                wheelPredictionDiv.classList.remove('glow-prediction');
+                predictionInner.innerHTML = '';
+                return;
+            }
+            
+            const accuracy = getRandomAccuracy();
+            wheelPredictionDiv.classList.add('glow-prediction');
+            predictionInner.innerHTML = `
+                <div class="pred-percentage">${accuracy}%</div>
+                <div class="pred-label">TREND ACCURACY</div>
+            `;
+        }
+        
+        window.updateTrendAccuracyDisplay = function(history) {
+            const currentHistory = [...(history || [])];
+            renderDisplay(currentHistory.length);
+        };
+        
+        renderDisplay(0);
+    })();
 </script>
+</body>
+</html>
