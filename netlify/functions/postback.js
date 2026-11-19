@@ -69,7 +69,7 @@ exports.handler = async (event) => {
           },
           referred_via: {
             stringValue:
-              "https://one-vv2957.com/?open=register&p=k2ry"
+              "https://lkxj.cc/3243d4"
           }
         }
       })
